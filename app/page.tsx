@@ -2,7 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { Textarea } from "@/components/ui/textarea"
+import IndentFormatBox from "@/components/IndentFormatBox"
+import AsciiFormatBox from "@/components/AsciiFormatBox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface TreeNode {
@@ -99,17 +100,11 @@ export default function FolderTreeGenerator() {
     lines.forEach((line) => {
       if (line.trim() === "." || !line.trim()) return
 
-      let depth = 0
-      let cleanLine = line
-
-      const match = line.match(/^(\s*)(├──|└──)\s*(.*)$/)
+      const match = line.match(/^(.*?)(├──|└──)\s*(.*)$/)
       if (match) {
-        const [, prefix, connector, name] = match
-        depth = Math.floor(prefix.length / 4)
-        cleanLine = name.replace(/\/$/, "")
-      }
-
-      if (cleanLine) {
+        const [ , prefix, , name ] = match
+        const depth = (prefix.match(/(│ {3}| {4})/g) || []).length
+        const cleanLine = name.replace(/\/$/, "")
         const indentation = "\t".repeat(depth)
         result += indentation + cleanLine + "\n"
       }
@@ -164,51 +159,16 @@ export default function FolderTreeGenerator() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Input - Indented Format */}
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Indented Format</CardTitle>
-              <p className="text-sm text-muted-foreground">Use Tab key for each indentation level</p>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={leftInput}
-                onChange={(e) => handleLeftChange(e.target.value)}
-                onKeyDown={handleTabKey}
-                placeholder={`root-folder
-	folder-1
-		folder-2
-folder-3
-	folder-4
-		folder-5`}
-                className="min-h-[400px] font-mono text-sm resize-none"
-                spellCheck={false}
-              />
-            </CardContent>
-          </Card>
+          <IndentFormatBox
+            value={leftInput}
+            onChange={handleLeftChange}
+            onKeyDown={handleTabKey}
+          />
 
-          {/* Right Input - ASCII Tree Format */}
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>ASCII Tree Format</CardTitle>
-              <p className="text-sm text-muted-foreground">Standard tree structure with ASCII characters</p>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={rightInput}
-                onChange={(e) => handleRightChange(e.target.value)}
-                placeholder={`.
-├── root-folder/
-│   └── folder-1/
-│       └── folder-2
-└── folder-3/
-    └── folder-4/
-        └── folder-5`}
-                className="min-h-[400px] font-mono text-sm resize-none"
-                spellCheck={false}
-              />
-            </CardContent>
-          </Card>
+          <AsciiFormatBox
+            value={rightInput}
+            onChange={handleRightChange}
+          />
         </div>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
