@@ -1,103 +1,220 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import type React from "react"
+import { useState, useEffect } from "react"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
+interface TreeNode {
+  name: string
+  level: number
+  children: TreeNode[]
+}
+
+export default function FolderTreeGenerator() {
+  const [leftInput, setLeftInput] = useState("")
+  const [rightInput, setRightInput] = useState("")
+  const [activeInput, setActiveInput] = useState<"left" | "right" | null>(null)
+
+  const indentedToAscii = (text: string): string => {
+    if (!text.trim()) return ""
+
+    const lines = text.split("\n").filter((line) => line.trim())
+    const nodes: TreeNode[] = []
+
+    lines.forEach((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return
+
+      // Count leading tabs
+      const level = line.length - line.replace(/^\t*/, "").length
+      nodes.push({
+        name: trimmed,
+        level,
+        children: [],
+      })
+    })
+
+    const buildTree = (startIndex: number, parentLevel: number): TreeNode[] => {
+      const result: TreeNode[] = []
+      let i = startIndex
+
+      while (i < nodes.length && nodes[i].level > parentLevel) {
+        if (nodes[i].level === parentLevel + 1) {
+          const node = nodes[i]
+          result.push(node)
+          i++
+
+          const childStartIndex = i
+          while (i < nodes.length && nodes[i].level > node.level) {
+            i++
+          }
+
+          if (childStartIndex < i) {
+            node.children = buildTree(childStartIndex, node.level)
+          }
+        } else {
+          i++
+        }
+      }
+
+      return result
+    }
+
+    const tree = buildTree(0, -1)
+
+    const generateAscii = (nodes: TreeNode[], prefix = "", isRoot = true): string => {
+      let result = ""
+
+      if (isRoot && nodes.length > 0) {
+        result += ".\n"
+      }
+
+      nodes.forEach((node, index) => {
+        const isLast = index === nodes.length - 1
+        const currentPrefix = isRoot ? "" : prefix
+        const connector = isLast ? "└── " : "├── "
+        const folderSuffix = node.children.length > 0 ? "/" : ""
+
+        result += currentPrefix + connector + node.name + folderSuffix + "\n"
+
+        if (node.children.length > 0) {
+          const childPrefix = currentPrefix + (isLast ? "    " : "│   ")
+          result += generateAscii(node.children, childPrefix, false)
+        }
+      })
+
+      return result
+    }
+
+    return generateAscii(tree).trim()
+  }
+
+  const asciiToIndented = (text: string): string => {
+    if (!text.trim()) return ""
+
+    const lines = text.split("\n").filter((line) => line.trim())
+    let result = ""
+
+    lines.forEach((line) => {
+      if (line.trim() === "." || !line.trim()) return
+
+      let depth = 0
+      let cleanLine = line
+
+      const match = line.match(/^(\s*)(├──|└──)\s*(.*)$/)
+      if (match) {
+        const [, prefix, connector, name] = match
+        depth = Math.floor(prefix.length / 4)
+        cleanLine = name.replace(/\/$/, "")
+      }
+
+      if (cleanLine) {
+        const indentation = "\t".repeat(depth)
+        result += indentation + cleanLine + "\n"
+      }
+    })
+
+    return result.trim()
+  }
+
+  const handleTabKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault()
+      const textarea = e.target as HTMLTextAreaElement
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const value = textarea.value
+
+      const newValue = value.substring(0, start) + "\t" + value.substring(end)
+      setLeftInput(newValue)
+
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 1
+      }, 0)
+    }
+  }
+
+  useEffect(() => {
+    if (activeInput === "left") {
+      const ascii = indentedToAscii(leftInput)
+      setRightInput(ascii)
+    } else if (activeInput === "right") {
+      const indented = asciiToIndented(rightInput)
+      setLeftInput(indented)
+    }
+  }, [leftInput, rightInput, activeInput])
+
+  const handleLeftChange = (value: string) => {
+    setActiveInput("left")
+    setLeftInput(value)
+  }
+
+  const handleRightChange = (value: string) => {
+    setActiveInput("right")
+    setRightInput(value)
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2">Folder Tree Generator</h1>
+          <p className="text-muted-foreground">Convert between indented folder structure and ASCII tree format</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Input - Indented Format */}
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Indented Format</CardTitle>
+              <p className="text-sm text-muted-foreground">Use Tab key for each indentation level</p>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={leftInput}
+                onChange={(e) => handleLeftChange(e.target.value)}
+                onKeyDown={handleTabKey}
+                placeholder={`root-folder
+	folder-1
+		folder-2
+folder-3
+	folder-4
+		folder-5`}
+                className="min-h-[400px] font-mono text-sm resize-none"
+                spellCheck={false}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Right Input - ASCII Tree Format */}
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>ASCII Tree Format</CardTitle>
+              <p className="text-sm text-muted-foreground">Standard tree structure with ASCII characters</p>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={rightInput}
+                onChange={(e) => handleRightChange(e.target.value)}
+                placeholder={`.
+├── root-folder/
+│   └── folder-1/
+│       └── folder-2
+└── folder-3/
+    └── folder-4/
+        └── folder-5`}
+                className="min-h-[400px] font-mono text-sm resize-none"
+                spellCheck={false}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8 text-center text-sm text-muted-foreground">
+          <p>Paste content into either field to see the conversion in the other format</p>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
